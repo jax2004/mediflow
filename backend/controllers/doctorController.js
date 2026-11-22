@@ -108,11 +108,11 @@ export const createMyProfile = async (req, res) => {
       return res.status(409).json({ message: 'Doctor profile already exists' });
     }
 
-    const { updates, error } = buildUpdates(req.body);
+    const { updates, error } = buildUpdates(req.body ?? {});
     if (error) return res.status(400).json({ message: error });
 
     const doctor = new Doctor({ user: req.user._id, ...updates });
-    applyClinic(doctor, req.body.clinic);
+    applyClinic(doctor, req.body?.clinic);
     await doctor.save(); // verificationStatus default: pending
 
     res.status(201).json(doctor);
@@ -129,11 +129,11 @@ export const updateMyProfile = async (req, res) => {
       return res.status(404).json({ message: 'Doctor profile not found. Create it first.' });
     }
 
-    const { updates, error } = buildUpdates(req.body);
+    const { updates, error } = buildUpdates(req.body ?? {});
     if (error) return res.status(400).json({ message: error });
 
     doctor.set(updates);
-    applyClinic(doctor, req.body.clinic);
+    applyClinic(doctor, req.body?.clinic);
 
     // rejected doctor profile sudhaar kar dobara review ke liye bhej sakta hai
     if (doctor.verificationStatus === 'rejected') {

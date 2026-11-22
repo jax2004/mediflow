@@ -4,6 +4,8 @@ import dotenv from 'dotenv';
 import connectDB from './config/db.js';
 import authRoutes from './routes/authRoutes.js';
 import doctorRoutes from './routes/doctorRoutes.js';
+import adminRoutes from './routes/adminRoutes.js';
+
 dotenv.config();
 
 const app = express();
@@ -11,6 +13,8 @@ app.use(cors());
 app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/doctors', doctorRoutes);
+app.use('/api/admin', adminRoutes);
+
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', app: 'MediFlow API' });
