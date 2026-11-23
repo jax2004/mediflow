@@ -1,4 +1,5 @@
 import Doctor from '../models/Doctor.js';
+import mongoose from 'mongoose'; 
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const MODES = ['online', 'offline'];
@@ -157,6 +158,83 @@ export const getMyProfile = async (req, res) => {
     );
     if (!doctor) {
       return res.status(404).json({ message: 'Doctor profile not found' });
+    }
+    res.json(doctor);
+  } catch (err) {
+    handleError(res, err);
+  }
+};
+
+// regex special characters escape (user input se regex injection rokne ke liye)
+const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// GET /api/doctors?specialization=&city=&mode=&maxFees=&page=&limit=
+// sirf approved doctors
+export const searchDoctors = async (req, res) => {
+  try {
+    const { specialization, city, mode, maxFees, page, limit } = req.query;
+    const filter = { verificationStatus: 'approved' };
+
+    if (specialization !== undefined) {
+      if (typeof specialization !== 'string' || !specialization.trim()) {
+        return res.status(400).json({ message: 'Invalid specialization' });
+      }
+      filter.specialization = new RegExp(escapeRegex(specialization.trim()), 'i');
+    }
+
+    if (city !== undefined) {
+      if (typeof city !== 'string' || !city.trim()) {
+        return res.status(400).json({ message: 'Invalid city' });
+      }
+      filter['clinic.city'] = new RegExp(`^${escapeRegex(city.trim())}$`, 'i');
+    }
+
+    if (mode !== undefined) {
+      if (!MODES.includes(mode)) {
+        return res.status(400).json({ message: 'mode must be online or offline' });
+      }
+      filter.consultationModes = mode;
+    }
+
+    if (maxFees !== undefined) {
+      const fees = Number(maxFees);
+      if (typeof maxFees !== 'string' || !maxFees.trim() || !Number.isFinite(fees) || fees < 0) {
+        return res.status(400).json({ message: 'maxFees must be a non-negative number' });
+      }
+      filter.fees = { $lte: fees };
+    }
+
+    const pageNum = Math.max(parseInt(page, 10) || 1, 1);
+    const limitNum = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 50);
+
+    const total = await Doctor.countDocuments(filter);
+    const doctors = await Doctor.find(filter)
+      .sort({ 'rating.average': -1, experienceYears: -1 })
+      .skip((pageNum - 1) * limitNum)
+      .limit(limitNum)
+      .populate('user', 'name')
+      .select('-rejectionReason -__v');
+
+    res.json({ total, page: pageNum, limit: limitNum, doctors });
+  } catch (err) {
+    handleError(res, err);
+  }
+};
+
+// GET /api/doctors/:id (sirf approved)
+export const getDoctorById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ message: 'Invalid doctor id' });
+    }
+
+    const doctor = await Doctor.findOne({ _id: id, verificationStatus: 'approved' })
+      .populate('user', 'name')
+      .select('-rejectionReason -__v');
+
+    if (!doctor) {
+      return res.status(404).json({ message: 'Doctor not found' });
     }
     res.json(doctor);
   } catch (err) {
