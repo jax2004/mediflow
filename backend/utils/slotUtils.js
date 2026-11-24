@@ -1,4 +1,5 @@
-const IST_OFFSET_MIN = 330; // Asia/Kolkata = UTC+5:30, DST nahi
+export const MAX_ADVANCE_DAYS = 30; 
+const IST_OFFSET_MIN = 330; // Asia/Kolkata = UTC+5:30
 const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
 const toMinutes = (hhmm) => {
