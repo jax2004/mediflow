@@ -1,5 +1,8 @@
 import Doctor from '../models/Doctor.js';
 import mongoose from 'mongoose'; 
+import {
+  generateSlots, isValidDateString, todayIST, addDaysToDateString, dayKeyOf,
+} from '../utils/slotUtils.js';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const MODES = ['online', 'offline'];
@@ -237,6 +240,54 @@ export const getDoctorById = async (req, res) => {
       return res.status(404).json({ message: 'Doctor not found' });
     }
     res.json(doctor);
+  } catch (err) {
+    handleError(res, err);
+  }
+};
+
+
+
+const MAX_ADVANCE_DAYS = 30; // kitne din aage tak slots dikhenge
+
+// GET /api/doctors/:id/slots?date=YYYY-MM-DD (public, sirf approved doctor)
+export const getDoctorSlots = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { date } = req.query;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ message: 'Invalid doctor id' });
+    }
+    if (!isValidDateString(date)) {
+      return res.status(400).json({ message: 'date required in YYYY-MM-DD format' });
+    }
+    const today = todayIST();
+    if (date < today) {
+      return res.status(400).json({ message: 'Past date not allowed' });
+    }
+    if (date > addDaysToDateString(today, MAX_ADVANCE_DAYS)) {
+      return res
+        .status(400)
+        .json({ message: `Date can be at most ${MAX_ADVANCE_DAYS} days ahead` });
+    }
+
+    const doctor = await Doctor.findOne({ _id: id, verificationStatus: 'approved' }).select(
+      'availability slotDurationMins'
+    );
+    if (!doctor) {
+      return res.status(404).json({ message: 'Doctor not found' });
+    }
+
+    const slots = generateSlots(doctor, date);
+    res.json({
+      doctorId: id,
+      date,
+      day: dayKeyOf(date),
+      timezone: 'Asia/Kolkata',
+      slotDurationMins: doctor.slotDurationMins,
+      total: slots.length,
+      slots,
+    });
   } catch (err) {
     handleError(res, err);
   }
