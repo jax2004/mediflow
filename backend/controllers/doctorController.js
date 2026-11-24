@@ -1,5 +1,7 @@
 import Doctor from '../models/Doctor.js';
 import mongoose from 'mongoose'; 
+import SlotLock from '../models/SlotLock.js';
+import Appointment from '../models/Appointment.js';
 import {
   generateSlots, isValidDateString, todayIST, addDaysToDateString, dayKeyOf, MAX_ADVANCE_DAYS,
 } from '../utils/slotUtils.js';
@@ -278,7 +280,22 @@ export const getDoctorSlots = async (req, res) => {
       return res.status(404).json({ message: 'Doctor not found' });
     }
 
-    const slots = generateSlots(doctor, date);
+    const allSlots = generateSlots(doctor, date);
+
+    // us din ke confirmed appointments aur abhi ke active locks (expire na hue)
+    const [booked, locked] = await Promise.all([
+      Appointment.find({ doctor: doctor._id, date, status: 'confirmed' }).select('startAt'),
+      SlotLock.find({
+        doctor: doctor._id,
+        date,
+        status: 'active',
+        expiresAt: { $gt: new Date() },
+      }).select('startAt'),
+    ]);
+
+    const taken = new Set([...booked, ...locked].map((x) => x.startAt.getTime()));
+    const slots = allSlots.filter((s) => !taken.has(new Date(s.startAt).getTime()));
+    
     res.json({
       doctorId: id,
       date,
