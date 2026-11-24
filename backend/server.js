@@ -5,6 +5,8 @@ import connectDB from './config/db.js';
 import authRoutes from './routes/authRoutes.js';
 import doctorRoutes from './routes/doctorRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+import './models/Appointment.js';
+import './models/SlotLock.js';
 
 dotenv.config();
 
