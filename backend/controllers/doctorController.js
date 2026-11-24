@@ -1,7 +1,7 @@
 import Doctor from '../models/Doctor.js';
 import mongoose from 'mongoose'; 
 import {
-  generateSlots, isValidDateString, todayIST, addDaysToDateString, dayKeyOf,
+  generateSlots, isValidDateString, todayIST, addDaysToDateString, dayKeyOf, MAX_ADVANCE_DAYS,
 } from '../utils/slotUtils.js';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -247,7 +247,7 @@ export const getDoctorById = async (req, res) => {
 
 
 
-const MAX_ADVANCE_DAYS = 30; // kitne din aage tak slots dikhenge
+
 
 // GET /api/doctors/:id/slots?date=YYYY-MM-DD (public, sirf approved doctor)
 export const getDoctorSlots = async (req, res) => {
