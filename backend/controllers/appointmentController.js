@@ -209,3 +209,63 @@ export const bookAppointment = async (req, res) => {
     return res.status(500).json({ message: 'Server error' });
   }
 };
+// GET /api/appointments/my?type=upcoming|past|all&page=&limit=  (patient only)
+export const getMyAppointments = async (req, res) => {
+  try {
+    const { type = 'upcoming', page, limit } = req.query;
+
+    if (typeof type !== 'string' || !['upcoming', 'past', 'all'].includes(type)) {
+      return res.status(400).json({ message: 'type must be upcoming, past or all' });
+    }
+
+    const now = new Date();
+    const filter = { patient: req.user._id }; // sirf apni appointments
+    let sort = { startAt: -1 };
+
+    if (type === 'upcoming') {
+      filter.status = 'confirmed';
+      filter.endAt = { $gt: now };
+      sort = { startAt: 1 };
+    } else if (type === 'past') {
+      filter.$or = [{ status: { $ne: 'confirmed' } }, { endAt: { $lte: now } }];
+    }
+
+    const pageNum = Math.max(parseInt(page, 10) || 1, 1);
+    const limitNum = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 50);
+
+    const total = await Appointment.countDocuments(filter);
+    const items = await Appointment.find(filter)
+      .sort(sort)
+      .skip((pageNum - 1) * limitNum)
+      .limit(limitNum)
+      .populate({
+        path: 'doctor',
+        select: 'specialization clinic user',
+        populate: { path: 'user', select: 'name' },
+      });
+
+    const appointments = items.map((a) => ({
+      id: a._id,
+      doctor: {
+        id: a.doctor?._id,
+        name: a.doctor?.user?.name,
+        specialization: a.doctor?.specialization,
+        clinic: a.doctor?.clinic,
+      },
+      date: a.date,
+      startTime: a.startTime,
+      endTime: a.endTime,
+      startAt: a.startAt,
+      endAt: a.endAt,
+      mode: a.mode,
+      fees: a.fees,
+      status: a.status,
+      paymentStatus: a.paymentStatus,
+    }));
+
+    return res.json({ type, total, page: pageNum, limit: limitNum, appointments });
+  } catch (error) {
+    console.error('getMyAppointments error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
